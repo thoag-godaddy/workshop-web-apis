@@ -113,10 +113,15 @@ curl -i -X GET -H "Authorization: Bearer ${MYAPITOKEN}" https://api.todoist.com/
 ```
 Lets go look at the documentation for tasks: https://developer.todoist.com/rest/v2/#tasks. We can see all the properties for a task and how to interact with their API. Lets try updating a task and see our change take effect. We can also delete and mark a task done with the close api. You'll need to substitute your own task IDs below.
 ```
-curl -i -X POST -H "Authorization: Bearer ${MYAPITOKEN}"  -H "Content-Type: application/json" "https://api.todoist.com/rest/v2/tasks/6999532330"  --data '{"priority": 4}'
-curl -i -H "Authorization: Bearer ${MYAPITOKEN}"  -H "Content-Type: application/json" "https://api.todoist.com/rest/v2/tasks/6999532330"
-curl -i -H "Authorization: Bearer ${MYAPITOKEN}"  -X DELETE "https://api.todoist.com/rest/v2/tasks/7001269279"
-curl -i -X POST -H "Authorization: Bearer ${MYAPITOKEN}" "https://api.todoist.com/rest/v2/tasks/6999531234/close"
+export CONSUME=ID_FROM_ABOVE
+export BUILD=ID_FROM_ABOVE
+export PROFIT=ID_FROM_ABOVE
+curl -i -X POST -H "Authorization: Bearer ${MYAPITOKEN}"  -H "Content-Type: application/json" "https://api.todoist.com/rest/v2/tasks/$PROFIT"  --data '{"priority": 4}'
+curl -i -H "Authorization: Bearer ${MYAPITOKEN}"  -H "Content-Type: application/json" "https://api.todoist.com/rest/v2/tasks/$PROFIT"
+curl -i -H "Authorization: Bearer ${MYAPITOKEN}"  -X DELETE "https://api.todoist.com/rest/v2/tasks/$BUILD"
+curl -i -X POST -H "Authorization: Bearer ${MYAPITOKEN}" "https://api.todoist.com/rest/v2/tasks/$CONSUME/close"
+curl -i -X GET -H "Authorization: Bearer ${MYAPITOKEN}" https://api.todoist.com/rest/v2/tasks
 ```
+Here, you will see the Consume APIs task is closed.  The Build APIs task is deleted.  And the Profit task is set to priority=4.
 We have successfully tested the CRUD endpoints of this API, but the interface wasn't quite as expected. REST is a pattern which you should know and do you best to follow, but its not a rigid requirement.
 
