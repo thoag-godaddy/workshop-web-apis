@@ -84,23 +84,43 @@ curl --location 'https://www.dataaccess.com/webservicesserver/NumberConversion.w
 ```
 
 ### CRUD Example
+
+#### Setup
 To illustrate a RESTful API, we will use a simple To Do List example with todoist.com. You can follow along if you like, but you'll need an API key so you can perform token-authentication when making requests. Obtaining one for simple use is free:
 1. [Sign up for an account](https://todoist.com/auth/signup)
 2. Verify your email and sign in
 3. [Navigate to their Developer section](https://todoist.com/app/settings/integrations/developer)
-    - You may get a popup asking if you would like to pay for Pro. Exit out of this and do not sign up
+    - You may get a popup asking if you would like to pay for Pro. Exit out of this and do not pay
 4. Select "Copy API Token"
-5. In your (*nix) terminal run `export MYAPITOKEN=PASTE_TOKEN_HERE` or substitute manually below
+5. In your (*nix) terminal run `export MYAPITOKEN=PASTE_YOUR_TOKEN_HERE`. 
 
-First, let's get our todo projects and try out our authentication method.
+***Checkpoint:*** Run:
+```bash
+echo $MYAPITOKEN
+```
+You should get back a randomized string.
 
-[Get Projects](https://developer.todoist.com/api/v1/#tag/Projects/operation/get_projects_api_v1_projects_get)
+#### GETting Resources
+
+Let's build a GET request based on the Todoist API. First, look at the [Get Projects](https://developer.todoist.com/api/v1/#tag/Projects/operation/get_projects_api_v1_projects_get) documentation.
+
+Let's try to get a list of our projects.
+
+```bash
+curl -i -X GET "https://api.todoist.com/api/v1/projects"
+```
+
+ToDoist didn't seem to like that. We used `-i`, so we can see the headers we sent. Based on the 401 response code and the lack of an `Authorization` header (and the fact that we didn't send any auth), that is the most likely culprit.
+
+Let's add authentication:
+
 ```bash
 curl -i -X GET https://api.todoist.com/api/v1/projects -H "Authorization: Bearer ${MYAPITOKEN}"
 ```
-I'll be using the -i so that curl displays the response headers which are great for debugging, but if you want a more succinct response it's optional. The -X GET specifies the HTTP GET verb. GET is the implicit default so we haven't provided it previously. Because I got a 200 response I know the server accepted my AuthN via the Authorization header. It is common for the header to start with the authentication scheme which in this case is Bearer auth. Bearer auth is typically just a way to say token auth.
 
-The response body above was a collection of project resources. We should be able to request the specific resource by ID. 
+Much better. Because I got a 200 response I know the server accepted my AuthN via the Authorization header. It is common for the header to start with the authentication scheme which in this case is Bearer auth. Bearer auth is typically just a way to say token auth.
+
+The response body above was a collection of project resources. We should be able to request the specific resource by ID. [Documentation](https://developer.todoist.com/api/v1/#tag/Projects/operation/get_project_api_v1_projects__project_id__get)
 
 ```bash
 # Store a project ID in an environment variable
@@ -109,21 +129,48 @@ MYPROJECT=<your_project_id>
 # Fetch the info for the project
 curl -i -X GET "https://api.todoist.com/api/v1/projects/${MYPROJECT}" -H "Authorization: Bearer ${MYAPITOKEN}"
 ```
+However, if your ID is wrong you will get the HTTP 404 not found status. 
 
-However, if your ID is wrong you will get the HTTP 404 not found status. Also, let's see what happens if we do not authenticate at all.
-```bash
-curl -i -X GET "https://api.todoist.com/api/v1/projects"
+***Checkpoint:*** Run:
 ```
-As expected, we received a status 401 error. Next let's CREATE a new project using POST. Notice we're now sending a content-type header as the client. This is required so that the server knows to process the JSON we are sending it. Feel free to try it without.
+curl -i -X GET "https://api.todoist.com/api/v1/projects/${MYPROJECT}" -H "Authorization: Bearer ${MYAPITOKEN}"
+```
+You should get back a dictionary representing a ToDoist project.
+
+#### POSTing Resources
+
+Next let's CREATE a new project using POST. Based on the [documentation](https://developer.todoist.com/api/v1/#tag/Projects/operation/create_project_api_v1_projects_post) the route should be the same as our GET collection, just using the POST method:
+
+```bash
+curl -i -X POST https://api.todoist.com/api/v1/projects -H "Authorization: Bearer ${MYAPITOKEN}"
+```
+We missed some important information. Let's try again with the required arguments. We will add:
+- A request body including the required paramters, using the `--data` argument
+- A `Content-Type` header to tell the API *how* we are sending that information: `application/json`
+
 ```bash
 curl -i -X POST -H "Authorization: Bearer ${MYAPITOKEN}"  -H "Content-Type: application/json" "https://api.todoist.com/api/v1/projects"  --data '{"name": "API Skill Goals"}'
 ```
-This will return a resource representing your new project; take note of its id. We are going to set a bash terminal variable with it, just like with the API key. Sometimes you want to see the environment variables you have set. You can list them with the env command and use grep to filter for the ones you want.
+
+We should see a 201 response code telling us a resource has been created in our collection of projects. We will use this project ID going forward. We are going to set a bash terminal variable with it, just like we did above. Sometimes you want to see the environment variables you have set. You can list them with the env command and use grep to filter for the ones you want.
+
 ```bash
 export MYPROJECT=ID_FROM_ABOVE
 env | grep MY
 ```
-Next we can add some tasks to that project and then list our collection of tasks.
+
+***Checkpoint:*** Run:
+```
+curl -i -X GET "https://api.todoist.com/api/v1/projects/${MYPROJECT}" -H "Authorization: Bearer ${MYAPITOKEN}"
+```
+You should get back a dictionary representing a ToDoist project with name `API Skill Goals`.
+
+#### Consuming Resource Data
+
+Next let's go look at the documentation for tasks: https://developer.todoist.com/api/v1/#tag/Tasks. 
+
+We can see all the properties for a task and how to interact with the API. We can add some tasks to that project and then list our collection of tasks. 
+
 ```bash
 curl -i -X POST -H "Authorization: Bearer ${MYAPITOKEN}"  -H "Content-Type: application/json" "https://api.todoist.com/api/v1/tasks"  --data '{"content": "Consume APIs", "project_id": "'"$MYPROJECT"'"}'
 
@@ -133,11 +180,16 @@ curl -i -X POST -H "Authorization: Bearer ${MYAPITOKEN}"  -H "Content-Type: appl
 
 curl -i -X GET -H "Authorization: Bearer ${MYAPITOKEN}" https://api.todoist.com/api/v1/tasks
 ```
-Let's go look at the documentation for tasks: https://developer.todoist.com/api/v1/#tag/Tasks. We can see all the properties for a task and how to interact with their API. 
 
-Let's retrieve and store the specific ID for each of the tasks we've just created using the [Get Tasks By Filter](https://developer.todoist.com/api/v1/#tag/Tasks/operation/get_tasks_by_filter_api_v1_tasks_filter_get) endpoint.
+This gives us a list of tasks. Let's retrieve the information for just one of them using the [Get Tasks By Filter](https://developer.todoist.com/api/v1/#tag/Tasks/operation/get_tasks_by_filter_api_v1_tasks_filter_get) endpoint.
 
-The `$(...)` means: "execute this command and return the value":
+```bash
+export CONSUME=$(curl -X GET -H "Authorization: Bearer ${MYAPITOKEN}" https://api.todoist.com/api/v1/tasks/filter?query="search:Consume" | jq -r '.results.[0].id')
+```
+
+This is not a REST-compliant endpoint. `filter` is an intent, not a resource or collection. However, it is useful.
+
+Let's do this for each task, and store the result in an environment variable. The `$(...)` means: "execute this command and return the value":
 
 ```bash
 export CONSUME=$(curl -X GET -H "Authorization: Bearer ${MYAPITOKEN}" https://api.todoist.com/api/v1/tasks/filter?query="search:Consume" | jq -r '.results.[0].id')
@@ -147,23 +199,39 @@ export PROFIT=$(curl -X GET -H "Authorization: Bearer ${MYAPITOKEN}" https://api
 export BUILD=$(curl -X GET -H "Authorization: Bearer ${MYAPITOKEN}" https://api.todoist.com/api/v1/tasks/filter?query="search:Build" | jq -r '.results.[0].id')
 ```
 
-Let's try updating a task and see our change take effect. You can see the changes happening in your [project](https://app.todoist.com/app/projects/active) and also using the API itself. We will also delete and mark a task done with the close API. You'll need to substitute your own task IDs below.
+***Checkpoint:*** Run:
+```bash
+curl -i -X GET -H "Authorization: Bearer ${MYAPITOKEN}" https://api.todoist.com/api/v1/tasks/${CONSUME}
+```
+You should get back a dictionary representing a ToDoist task with the name `Consume APIs`.
+
+#### Modifying Resources
+
+Let's try updating a task and see our change take effect. A REST-compliant API would likely use a `PATCH` or `PUT` to modify a resource, but reading the [documentation](https://developer.todoist.com/api/v1/#tag/Tasks/operation/update_task_api_v1_tasks__task_id__post) we can see that we will actually use a POST for our update.
+
 ```bash
 # UPDATE (not really very RESTful)
 curl -i -X POST -H "Authorization: Bearer ${MYAPITOKEN}"  -H "Content-Type: application/json" "https://api.todoist.com/api/v1/tasks/$PROFIT"  --data '{"priority": 4}'
 
 # GET (read) resource
 curl -i -H "Authorization: Bearer ${MYAPITOKEN}"  -H "Content-Type: application/json" "https://api.todoist.com/api/v1/tasks/$PROFIT"
+```
 
+You can see the changes happening in your [project](https://app.todoist.com/app/projects/active) and also using the API itself. We can also delete and mark a task done with the close API.
+
+```bash
 # DELETE method/verb
 curl -i -H "Authorization: Bearer ${MYAPITOKEN}"  -X DELETE "https://api.todoist.com/api/v1/tasks/$BUILD"
 
 # Not RESTful - Intent or action
 curl -i -X POST -H "Authorization: Bearer ${MYAPITOKEN}" "https://api.todoist.com/api/v1/tasks/$CONSUME/close"
+```
 
-# GET collection
+***Checkpoint:*** Run:
+```bash
 curl -i -X GET -H "Authorization: Bearer ${MYAPITOKEN}" https://api.todoist.com/api/v1/tasks
 ```
 Here, you will see the Consume APIs task is closed. The Build APIs task is deleted. And the Profit task is set to priority=4.
+
 We have successfully tested the CRUD endpoints of this API, but the interface wasn't quite as expected. REST is a pattern which you should know and do your best to follow, but it's not a rigid requirement.
 
